@@ -1,71 +1,135 @@
 import streamlit as st
 from transformers import pipeline
 
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(
+    page_title="Review Sentiment Analysis",
+    page_icon="📊",
+    layout="centered"
+)
+
+# =========================
+# SESSION STATE
+# =========================
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# 1. Konfigurasi Halaman (Simpel dan Bersih)
-st.set_page_config(page_title="Review Sentiment Analysis", page_icon="📊")
-st.title("Analisis Sentimen Review Produk")
-st.write("Masukkan teks review produk di bawah ini untuk mengetahui apakah sentimennya Positif atau Negatif.")
-
-# 2. Fungsi Load Model dengan Cache
+# =========================
+# LOAD MODEL
+# =========================
 @st.cache_resource
 def load_model():
-    return pipeline(task="text-classification", model="asipnana/tokopedia-indobert-sentiment")
+    return pipeline(
+        "text-classification",
+        model="asipnana/tokopedia-indobert-sentiment"
+    )
 
-with st.spinner("Mempersiapkan model..."):
+with st.spinner("Loading model..."):
     sentiment_model = load_model()
 
-# 3. Kotak Input Review
-user_review = st.text_area("Kotak Input Review:", placeholder="Ketik review di sini...")
+# =========================
+# HEADER
+# =========================
+st.title("📊 Analisis Sentimen Review Produk")
+st.write(
+    "Masukkan review produk berbahasa Indonesia untuk mengetahui "
+    "apakah sentimennya positif atau negatif."
+)
 
-# 4. Tombol Eksekusi
-if st.button("Sentiment Analysis", use_container_width=True):
-    # Validasi logical: Cegah eksekusi jika input kosong
+# =========================
+# INPUT
+# =========================
+user_review = st.text_area(
+    "Review Produk",
+    height=150,
+    placeholder="Contoh: Pengiriman cepat, kualitas produk bagus, sangat puas..."
+)
+
+# =========================
+# PREDICTION
+# =========================
+if st.button("🔍 Analisis Sentimen", use_container_width=True):
+
     if not user_review.strip():
-        st.error("Teks review tidak boleh kosong. Silakan isi terlebih dahulu.")
+        st.warning("Silakan masukkan review terlebih dahulu.")
     else:
-        with st.spinner("Menganalisis sentimen..."):
-            # Model inference
-            result = sentiment_model(user_review)
-            
-            # Ekstraksi output mentah
-            raw_label = result[0]['label']
-            score = result[0]['score']
-            
-            # Logika pemetaan label untuk mengantisipasi output 'LABEL_0' atau 'LABEL_1'
-            if raw_label == "LABEL_0" or raw_label == "Negative":
-                final_sentiment = "🔴 NEGATIVE"
-            elif raw_label == "LABEL_1" or raw_label == "Positive":
-                final_sentiment = "🟢 POSITIVE"
-            else:
-                final_sentiment = raw_label # Fallback jika format berbeda
-                
-            # 5. Menampilkan Output di Bawah Tombol
-            st.markdown("### Hasil Analisis:")
-            st.success(f"**Sentimen:** {final_sentiment}")
-            st.info(f"**Tingkat Keyakinan (Score):** {score:.2%}")
+        with st.spinner("Menganalisis..."):
 
-            
+            result = sentiment_model(user_review)
+
+            raw_label = result[0]["label"]
+            score = result[0]["score"]
+
+            # Mapping label
+            if raw_label in ["LABEL_0", "Negative", "NEGATIVE"]:
+                sentiment = "NEGATIVE"
+                emoji = "🔴"
+            elif raw_label in ["LABEL_1", "Positive", "POSITIVE"]:
+                sentiment = "POSITIVE"
+                emoji = "🟢"
+            else:
+                sentiment = raw_label
+                emoji = "⚪"
+
+            st.markdown("---")
+            st.subheader("Hasil Analisis")
+
+            st.success(
+                f"{emoji} Sentimen: **{sentiment}**"
+            )
+
+            st.info(
+                f"🎯 Tingkat Keyakinan: **{score:.2%}**"
+            )
+
+            # Save history
             st.session_state.history.append({
                 "text": user_review,
-                "sentiment": final_sentiment,
+                "sentiment": sentiment,
                 "score": score
             })
 
-
-# History Management: Menyimpan Riwayat Prediksi
+# =========================
+# HISTORY
+# =========================
 st.markdown("---")
 st.subheader("📜 Riwayat Prediksi")
 
 if len(st.session_state.history) == 0:
-    st.caption("Belum ada prediksi. Masukkan review dan klik tombol untuk melihat hasilnya.")
+    st.caption("Belum ada riwayat prediksi.")
 else:
+
     for item in reversed(st.session_state.history[-5:]):
-        st.markdown(
-            f"""
-            - **{item['sentiment']}** ({item['score']:.2%})
-              > {item['text'][:80]}...
-            """
+
+        preview = (
+            item["text"][:100] + "..."
+            if len(item["text"]) > 100
+            else item["text"]
         )
+
+        if item["sentiment"] == "POSITIVE":
+            st.success(
+                f"🟢 {item['sentiment']} ({item['score']:.2%})\n\n{preview}"
+            )
+        else:
+            st.error(
+                f"🔴 {item['sentiment']} ({item['score']:.2%})\n\n{preview}"
+            )
+
+# =========================
+# FOOTER
+# =========================
+st.markdown("---")
+
+st.markdown("### 👥 Kelompok")
+
+st.markdown("""
+**Comparative Analysis of ResNet50, EfficientNet-B7, and DenseNet121 for Breast Cancer Ultrasound Image Classification**
+**Anggota Kelompok:**
+- Adisca Gandawidjaja - 2802420315
+- Alicia Angelina Jusup - 2802420334
+- Mathilda Rafaella Christy Nugroho — 2802415744
+**Powered by:** IndoBERT base p1 
+""")
